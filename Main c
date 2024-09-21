@@ -1,0 +1,136 @@
+
+#include <Arduino.h>           
+#include "freertos/FreeRTOS.h"  
+#include "freertos/task.h"
+
+
+#define led1 27
+#define led2 2
+#define led3 32
+#define pot1 12  
+
+// Definición de los valores del ADC y el voltaje de referencia
+#define ADC_RESOLUCION 4095  // Resolución del ADC (12 bits)
+#define VREF 3.3  // Voltaje de referencia del ESP32
+
+void Encender_LED(int led, int tiempo_ms) {
+  int ledPin;
+  
+  switch (led) {
+    case 1:
+      ledPin = led1;
+      break;
+    case 2:
+      ledPin = led2;
+      break;
+    case 3:
+      ledPin = led3;
+      break;
+    default:
+      Serial.println("Error: led invalido.");
+      return;
+  }
+
+  digitalWrite(ledPin, HIGH);  // Encender LED
+  vTaskDelay(tiempo_ms / portTICK_PERIOD_MS);  // Esperar el tiempo especificado
+  digitalWrite(ledPin, LOW);   // Apagar LED
+}
+
+// Función para leer el ADC y mostrar el valor de voltaje
+void Lectura_ADC() {
+  int valorADC = analogRead(pot1);  // Lectura del canal ADC
+  float voltaje = (valorADC * VREF) / ADC_RESOLUCION;  // Convertir a voltaje
+  
+  Serial.print("Voltaje: ");
+  Serial.print(voltaje, 2);  // Imprimir voltaje con 2 decimales
+  Serial.println(" V");
+}
+
+// Función para mostrar el menú
+void MostrarMenu() {
+  Serial.println("\nMenu:");
+  Serial.println("1. Lectura ADC");
+  Serial.println("2. Controlar LEDs");
+  Serial.println("Seleccione una opcion:");
+}
+
+// Función para controlar LEDs con parámetros ingresados por el usuario
+void Controlar_LEDs() {
+  String entrada;
+  int led, tiempo;
+  
+  Serial.println("Ingrese el LED y el tiempo en milisegundos separados por una coma (Ej: 1,500):");
+
+  // Leer la entrada del usuario
+  while (true) {
+    while (Serial.available() == 0);  // Esperar entrada del usuario
+    entrada = Serial.readStringUntil('\n');  // Leer la línea hasta nueva línea
+
+    // Separar los valores (LED, tiempo) por la coma
+    int comaIndex = entrada.indexOf(',');
+    if (comaIndex == -1) {
+      Serial.println("Error: Formato invalido. Intente de nuevo.");
+      continue;
+    }
+
+    // Extraer el LED y el tiempo
+    String ledStr = entrada.substring(0, comaIndex);
+    String tiempoStr = entrada.substring(comaIndex + 1);
+
+    // Convertir los valores a enteros
+    led = ledStr.toInt();
+    tiempo = tiempoStr.toInt();
+
+    // Verificar si los valores son válidos
+    if ((led < 1 || led > 3) || tiempo <= 0) {
+      Serial.println("Error: LED o tiempo invalido. Intente de nuevo.");
+    } else {
+      // Valores válidos, encender el LED
+      Encender_LED(led, tiempo);
+      break;
+    }
+  }
+}
+
+void setup() {
+  // Inicializar comunicación serial
+  Serial.begin(115200);
+  
+  // Inicializar pines de los LEDs como salida
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+  pinMode(led3, OUTPUT);
+
+  // Inicializar el pin del potenciómetro (ADC)
+  pinMode(pot1, INPUT);
+}
+
+void loop() {
+  // Mostrar el menú
+  MostrarMenu();
+  
+  // Esperar a que el usuario ingrese una opción
+  while (Serial.available() == 0);  // Esperar por entrada
+  int opcion = Serial.parseInt();
+
+  // Procesar la opción seleccionada
+  switch (opcion) {
+    case 1:
+      // Lectura ADC
+      Lectura_ADC();
+      break;
+      
+    case 2:
+      // Controlar LEDs
+      Controlar_LEDs();
+      break;
+      
+    default:
+      // Opción inválida
+      Serial.println("Opcion no valida");
+      break;
+  }
+
+  // Esperar unos segundos antes de volver a mostrar el menú
+  vTaskDelay(1000 / portTICK_PERIOD_MS);
+}
